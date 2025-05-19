@@ -36,9 +36,10 @@
 /NODEFAULTLIB:"LIBCPD"
 /FUNCTIONPADMIN:6
 /NOIMPLIB
-"C:\Users\phili\Documents\Unreal Projects\Strafe\Intermediate\Build\Win64\x64\StrafeEditor\Development\UnrealEd\SharedPCH.UnrealEd.Cpp20.h.obj"
+"C:\Users\phili\Documents\Unreal Projects\Strafe\Intermediate\Build\Win64\x64\StrafeEditor\Development\UnrealEd\SharedPCH.UnrealEd.Project.ValApi.Cpp20.h.obj"
 "C:\Users\phili\Documents\Unreal Projects\Strafe\Plugins\StrafeMovement\Intermediate\Build\Win64\x64\UnrealEditor\Development\StrafeMovement\Module.StrafeMovement.cpp.obj"
 "C:\Users\phili\Documents\Unreal Projects\Strafe\Plugins\StrafeMovement\Intermediate\Build\Win64\x64\UnrealEditor\Development\StrafeMovement\StrafeMovement.cpp.obj"
+"C:\Users\phili\Documents\Unreal Projects\Strafe\Plugins\StrafeMovement\Intermediate\Build\Win64\x64\UnrealEditor\Development\StrafeMovement\StrafeMovementComponent.cpp.obj"
 "C:\Users\phili\Documents\Unreal Projects\Strafe\Plugins\StrafeMovement\Intermediate\Build\Win64\x64\UnrealEditor\Development\StrafeMovement\Default.rc2.res"
 "..\Intermediate\Build\Win64\x64\UnrealEditor\Development\CoreUObject\UnrealEditor-CoreUObject.lib"
 "..\Intermediate\Build\Win64\x64\UnrealEditor\Development\Engine\UnrealEditor-Engine.lib"

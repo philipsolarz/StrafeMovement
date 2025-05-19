@@ -8,7 +8,8 @@
 /NODEFAULTLIB
 "C:\Users\phili\Documents\Unreal Projects\Strafe\Intermediate\Build\Win64\x64\StrafeEditor\DebugGame\UnrealEd\SharedPCH.UnrealEd.Project.NonOptimized.ValApi.Cpp20.h.obj"
 "C:\Users\phili\Documents\Unreal Projects\Strafe\Plugins\StrafeMovement\Intermediate\Build\Win64\x64\UnrealEditor\DebugGame\StrafeMovement\Module.StrafeMovement.cpp.obj"
-"C:\Users\phili\Documents\Unreal Projects\Strafe\Plugins\StrafeMovement\Intermediate\Build\Win64\x64\UnrealEditor\DebugGame\StrafeMovement\StrafeMovement.cpp.obj"
 "C:\Users\phili\Documents\Unreal Projects\Strafe\Plugins\StrafeMovement\Intermediate\Build\Win64\x64\UnrealEditor\DebugGame\StrafeMovement\StrafeMovementComponent.cpp.obj"
+"C:\Users\phili\Documents\Unreal Projects\Strafe\Plugins\StrafeMovement\Intermediate\Build\Win64\x64\UnrealEditor\DebugGame\StrafeMovement\StrafeMovement.init.gen.cpp.obj"
+"C:\Users\phili\Documents\Unreal Projects\Strafe\Plugins\StrafeMovement\Intermediate\Build\Win64\x64\UnrealEditor\DebugGame\StrafeMovement\StrafeMovementComponent.gen.cpp.obj"
 "C:\Users\phili\Documents\Unreal Projects\Strafe\Plugins\StrafeMovement\Intermediate\Build\Win64\x64\UnrealEditor\DebugGame\StrafeMovement\Default.rc2.res"
 /OUT:"C:\Users\phili\Documents\Unreal Projects\Strafe\Plugins\StrafeMovement\Intermediate\Build\Win64\x64\UnrealEditor\DebugGame\StrafeMovement\UnrealEditor-StrafeMovement-Win64-DebugGame.lib"

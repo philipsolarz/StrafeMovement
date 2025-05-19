@@ -22,7 +22,7 @@ enum class EStrafeMovementPreset : uint8
  *
  * Replicates Quake III Arena's core movement mechanics within the Unreal Engine framework.
  * Focuses on ground/air acceleration, friction, jumping, and maintaining the "feel"
- * of strafe-jumping and bunny-hopping.
+ * of strafe-jumping, bunny-hopping, and step-sliding.
  */
 UCLASS(Config = Game)
 class STRAFEMOVEMENT_API UStrafeMovementComponent : public UCharacterMovementComponent
@@ -67,21 +67,26 @@ protected:
     virtual void UpdateFromCompressedFlags(uint8 Flags) override;
     //~ End UCharacterMovementComponent Protected Interface
 
-    /** Core Quake-style acceleration logic.
-     * @param WishDirection Normalized direction of desired movement.
-     * @param WishSpeed Desired speed in WishDirection.
-     * @param AccelerationParam The acceleration factor (e.g., pm_accelerate, pm_airaccelerate).
-     * @param DeltaTime Frame delta time.
-     */
+    /** Core Quake-style acceleration logic. */
     virtual void ApplyStrafeAcceleration(const FVector& WishDirection, float WishSpeed, float AccelerationParam, float DeltaTime);
 
-    /** Core Quake-style friction logic.
-     * @param DeltaTime Frame delta time.
-     */
+    /** Core Quake-style friction logic. */
     virtual void ApplyStrafeFriction(float DeltaTime);
 
     /** Called when the player lands on the ground. */
     virtual void OnLanded(const FHitResult& Hit);
+
+    /**
+     * Attempts to perform a Quake-style step-up and slide.
+     * Called when an initial move in PhysWalking is blocked.
+     * @param InitialBlockHit The hit result from the first blocked move.
+     * @param PreFrameLocation Location of the component *before* the initial blocked move was attempted.
+     * @param PreFrameVelocity Velocity of the component *before* the initial blocked move was attempted.
+     * @param DeltaTime The frame's delta time.
+     * @return True if the step-up and subsequent move were successful, false otherwise.
+     */
+    virtual bool TryStrafeStepUp(const FHitResult& InitialBlockHit, const FVector& PreFrameLocation, const FVector& PreFrameVelocity, float DeltaTime);
+
 
     UPROPERTY()
     EStrafeMovementPreset CurrentMovementPreset;
@@ -121,6 +126,14 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Strafe Movement|Jumping", Config)
     float JumpLandTimePenalty;
 
+    // --- Quake Step Logic Parameters ---
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Strafe Movement|Stepping", Config)
+    bool bEnableQuakeStepLogic;
+
+    /** Height for the Quake-style step-up logic (similar to Q3's STEPSIZE). */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Strafe Movement|Stepping", Config, meta = (EditCondition = "bEnableQuakeStepLogic", ClampMin = "0.0"))
+    float QuakeStepHeight;
+
     // --- Movement Presets Data (Example) ---
     UPROPERTY(EditDefaultsOnly, Category = "Strafe Movement|Presets|ClassicQuake")
     float ClassicQuake_MaxWishSpeed = 320.f;
@@ -138,6 +151,10 @@ public:
     float ClassicQuake_StrafeJumpImpulse = 270.f;
     UPROPERTY(EditDefaultsOnly, Category = "Strafe Movement|Presets|ClassicQuake")
     float ClassicQuake_JumpLandTimePenalty = 0.25f;
+    UPROPERTY(EditDefaultsOnly, Category = "Strafe Movement|Presets|ClassicQuake")
+    bool ClassicQuake_bEnableQuakeStepLogic = true;
+    UPROPERTY(EditDefaultsOnly, Category = "Strafe Movement|Presets|ClassicQuake")
+    float ClassicQuake_QuakeStepHeight = 18.f;
 
 
 protected:
@@ -150,15 +167,7 @@ protected:
     /** Current wish speed based on input, before acceleration logic modifies velocity. */
     float CurrentWishSpeed;
 
-    /**
-     * Custom Quake-style velocity clipping.
-     * Based on PM_ClipVelocity from bg_pmove.c.
-     * Slides velocity along the impact normal.
-     * @param InVelocity The velocity to be clipped.
-     * @param ImpactNormal The normal of the surface impacted.
-     * @param Overbounce A factor to slightly push away from the surface (Q3's OVERCLIP).
-     * @return The clipped velocity.
-     */
+    /** Custom Quake-style velocity clipping. */
     FVector ClipVelocity(const FVector& InVelocity, const FVector& ImpactNormal, float Overbounce = 1.001f) const;
 
     /** Helper to check if character is against a wall that should block Z movement when falling */
