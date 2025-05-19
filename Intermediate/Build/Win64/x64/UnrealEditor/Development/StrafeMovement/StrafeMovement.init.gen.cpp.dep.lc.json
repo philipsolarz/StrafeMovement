@@ -1,0 +1,13 @@
+{
+    "Version": "1.2",
+    "Data": {
+        "Source": "c:\\users\\phili\\documents\\unreal projects\\strafe\\plugins\\strafemovement\\intermediate\\build\\win64\\unrealeditor\\inc\\strafemovement\\uht\\strafemovement.init.gen.cpp",
+        "ProvidedModule": "",
+        "PCH": "c:\\users\\phili\\documents\\unreal projects\\strafe\\intermediate\\build\\win64\\x64\\strafeeditor\\development\\unrealed\\sharedpch.unrealed.project.valapi.cpp20.h.pch",
+        "Includes": [
+            "c:\\users\\phili\\documents\\unreal projects\\strafe\\plugins\\strafemovement\\intermediate\\build\\win64\\x64\\unrealeditor\\development\\strafemovement\\definitions.strafemovement.h"
+        ],
+        "ImportedModules": [],
+        "ImportedHeaderUnits": []
+    }
+}

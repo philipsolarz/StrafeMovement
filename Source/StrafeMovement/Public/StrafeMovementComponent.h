@@ -118,13 +118,17 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Strafe Movement|Air", Config)
     bool bAirAccelerationAllowsExceedingMaxWishSpeed;
 
+    /** If true, holding jump will attempt to jump again immediately upon landing, respecting JumpLandTimePenalty. */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Strafe Movement|Jumping", Config)
+    bool bAllowAutoBunnyHop;
+
     /** Initial vertical velocity for a jump (equivalent to Q3's JUMP_VELOCITY). */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Strafe Movement|Jumping", Config)
     float StrafeJumpImpulse;
 
     /** Duration (in seconds) after landing during which another jump is disallowed (approximates Q3's PMF_TIME_LAND). */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Strafe Movement|Jumping", Config)
-    float JumpLandTimePenalty;
+    //UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Strafe Movement|Jumping", Config)
+    //float JumpLandTimePenalty;
 
     // --- Quake Step Logic Parameters ---
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Strafe Movement|Stepping", Config)
@@ -149,8 +153,8 @@ public:
     bool ClassicQuake_bAirAccelerationAllowsExceedingMaxWishSpeed = true;
     UPROPERTY(EditDefaultsOnly, Category = "Strafe Movement|Presets|ClassicQuake")
     float ClassicQuake_StrafeJumpImpulse = 270.f;
-    UPROPERTY(EditDefaultsOnly, Category = "Strafe Movement|Presets|ClassicQuake")
-    float ClassicQuake_JumpLandTimePenalty = 0.25f;
+    //UPROPERTY(EditDefaultsOnly, Category = "Strafe Movement|Presets|ClassicQuake")
+    //float ClassicQuake_JumpLandTimePenalty = 0.25f;
     UPROPERTY(EditDefaultsOnly, Category = "Strafe Movement|Presets|ClassicQuake")
     bool ClassicQuake_bEnableQuakeStepLogic = true;
     UPROPERTY(EditDefaultsOnly, Category = "Strafe Movement|Presets|ClassicQuake")

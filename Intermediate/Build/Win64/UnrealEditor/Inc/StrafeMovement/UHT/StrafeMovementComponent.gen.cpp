@@ -333,6 +333,16 @@ struct Z_Construct_UClass_UStrafeMovementComponent_Statics
 		{ "ToolTip", "If true, air acceleration is not limited by the MaxWishSpeed. This allows for traditional bunny hopping/strafe jumping." },
 #endif
 	};
+	static constexpr UECodeGen_Private::FMetaDataPairParam NewProp_bAllowAutoBunnyHop_MetaData[] = {
+		{ "Category", "Strafe Movement|Jumping" },
+#if !UE_BUILD_SHIPPING
+		{ "Comment", "/** If true, holding jump will attempt to jump again immediately upon landing, respecting JumpLandTimePenalty. */" },
+#endif
+		{ "ModuleRelativePath", "Public/StrafeMovementComponent.h" },
+#if !UE_BUILD_SHIPPING
+		{ "ToolTip", "If true, holding jump will attempt to jump again immediately upon landing, respecting JumpLandTimePenalty." },
+#endif
+	};
 	static constexpr UECodeGen_Private::FMetaDataPairParam NewProp_StrafeJumpImpulse_MetaData[] = {
 		{ "Category", "Strafe Movement|Jumping" },
 #if !UE_BUILD_SHIPPING
@@ -341,16 +351,6 @@ struct Z_Construct_UClass_UStrafeMovementComponent_Statics
 		{ "ModuleRelativePath", "Public/StrafeMovementComponent.h" },
 #if !UE_BUILD_SHIPPING
 		{ "ToolTip", "Initial vertical velocity for a jump (equivalent to Q3's JUMP_VELOCITY)." },
-#endif
-	};
-	static constexpr UECodeGen_Private::FMetaDataPairParam NewProp_JumpLandTimePenalty_MetaData[] = {
-		{ "Category", "Strafe Movement|Jumping" },
-#if !UE_BUILD_SHIPPING
-		{ "Comment", "/** Duration (in seconds) after landing during which another jump is disallowed (approximates Q3's PMF_TIME_LAND). */" },
-#endif
-		{ "ModuleRelativePath", "Public/StrafeMovementComponent.h" },
-#if !UE_BUILD_SHIPPING
-		{ "ToolTip", "Duration (in seconds) after landing during which another jump is disallowed (approximates Q3's PMF_TIME_LAND)." },
 #endif
 	};
 	static constexpr UECodeGen_Private::FMetaDataPairParam NewProp_bEnableQuakeStepLogic_MetaData[] = {
@@ -409,13 +409,15 @@ struct Z_Construct_UClass_UStrafeMovementComponent_Statics
 		{ "Category", "Strafe Movement|Presets|ClassicQuake" },
 		{ "ModuleRelativePath", "Public/StrafeMovementComponent.h" },
 	};
-	static constexpr UECodeGen_Private::FMetaDataPairParam NewProp_ClassicQuake_JumpLandTimePenalty_MetaData[] = {
-		{ "Category", "Strafe Movement|Presets|ClassicQuake" },
-		{ "ModuleRelativePath", "Public/StrafeMovementComponent.h" },
-	};
 	static constexpr UECodeGen_Private::FMetaDataPairParam NewProp_ClassicQuake_bEnableQuakeStepLogic_MetaData[] = {
 		{ "Category", "Strafe Movement|Presets|ClassicQuake" },
+#if !UE_BUILD_SHIPPING
+		{ "Comment", "//UPROPERTY(EditDefaultsOnly, Category = \"Strafe Movement|Presets|ClassicQuake\")\n//float ClassicQuake_JumpLandTimePenalty = 0.25f;\n" },
+#endif
 		{ "ModuleRelativePath", "Public/StrafeMovementComponent.h" },
+#if !UE_BUILD_SHIPPING
+		{ "ToolTip", "UPROPERTY(EditDefaultsOnly, Category = \"Strafe Movement|Presets|ClassicQuake\")\nfloat ClassicQuake_JumpLandTimePenalty = 0.25f;" },
+#endif
 	};
 	static constexpr UECodeGen_Private::FMetaDataPairParam NewProp_ClassicQuake_QuakeStepHeight_MetaData[] = {
 		{ "Category", "Strafe Movement|Presets|ClassicQuake" },
@@ -431,8 +433,9 @@ struct Z_Construct_UClass_UStrafeMovementComponent_Statics
 	static const UECodeGen_Private::FFloatPropertyParams NewProp_AirAccelerationFactor;
 	static void NewProp_bAirAccelerationAllowsExceedingMaxWishSpeed_SetBit(void* Obj);
 	static const UECodeGen_Private::FBoolPropertyParams NewProp_bAirAccelerationAllowsExceedingMaxWishSpeed;
+	static void NewProp_bAllowAutoBunnyHop_SetBit(void* Obj);
+	static const UECodeGen_Private::FBoolPropertyParams NewProp_bAllowAutoBunnyHop;
 	static const UECodeGen_Private::FFloatPropertyParams NewProp_StrafeJumpImpulse;
-	static const UECodeGen_Private::FFloatPropertyParams NewProp_JumpLandTimePenalty;
 	static void NewProp_bEnableQuakeStepLogic_SetBit(void* Obj);
 	static const UECodeGen_Private::FBoolPropertyParams NewProp_bEnableQuakeStepLogic;
 	static const UECodeGen_Private::FFloatPropertyParams NewProp_QuakeStepHeight;
@@ -444,7 +447,6 @@ struct Z_Construct_UClass_UStrafeMovementComponent_Statics
 	static void NewProp_ClassicQuake_bAirAccelerationAllowsExceedingMaxWishSpeed_SetBit(void* Obj);
 	static const UECodeGen_Private::FBoolPropertyParams NewProp_ClassicQuake_bAirAccelerationAllowsExceedingMaxWishSpeed;
 	static const UECodeGen_Private::FFloatPropertyParams NewProp_ClassicQuake_StrafeJumpImpulse;
-	static const UECodeGen_Private::FFloatPropertyParams NewProp_ClassicQuake_JumpLandTimePenalty;
 	static void NewProp_ClassicQuake_bEnableQuakeStepLogic_SetBit(void* Obj);
 	static const UECodeGen_Private::FBoolPropertyParams NewProp_ClassicQuake_bEnableQuakeStepLogic;
 	static const UECodeGen_Private::FFloatPropertyParams NewProp_ClassicQuake_QuakeStepHeight;
@@ -473,8 +475,12 @@ void Z_Construct_UClass_UStrafeMovementComponent_Statics::NewProp_bAirAccelerati
 	((UStrafeMovementComponent*)Obj)->bAirAccelerationAllowsExceedingMaxWishSpeed = 1;
 }
 const UECodeGen_Private::FBoolPropertyParams Z_Construct_UClass_UStrafeMovementComponent_Statics::NewProp_bAirAccelerationAllowsExceedingMaxWishSpeed = { "bAirAccelerationAllowsExceedingMaxWishSpeed", nullptr, (EPropertyFlags)0x0010000000004005, UECodeGen_Private::EPropertyGenFlags::Bool | UECodeGen_Private::EPropertyGenFlags::NativeBool, RF_Public|RF_Transient|RF_MarkAsNative, nullptr, nullptr, 1, sizeof(bool), sizeof(UStrafeMovementComponent), &Z_Construct_UClass_UStrafeMovementComponent_Statics::NewProp_bAirAccelerationAllowsExceedingMaxWishSpeed_SetBit, METADATA_PARAMS(UE_ARRAY_COUNT(NewProp_bAirAccelerationAllowsExceedingMaxWishSpeed_MetaData), NewProp_bAirAccelerationAllowsExceedingMaxWishSpeed_MetaData) };
+void Z_Construct_UClass_UStrafeMovementComponent_Statics::NewProp_bAllowAutoBunnyHop_SetBit(void* Obj)
+{
+	((UStrafeMovementComponent*)Obj)->bAllowAutoBunnyHop = 1;
+}
+const UECodeGen_Private::FBoolPropertyParams Z_Construct_UClass_UStrafeMovementComponent_Statics::NewProp_bAllowAutoBunnyHop = { "bAllowAutoBunnyHop", nullptr, (EPropertyFlags)0x0010000000004005, UECodeGen_Private::EPropertyGenFlags::Bool | UECodeGen_Private::EPropertyGenFlags::NativeBool, RF_Public|RF_Transient|RF_MarkAsNative, nullptr, nullptr, 1, sizeof(bool), sizeof(UStrafeMovementComponent), &Z_Construct_UClass_UStrafeMovementComponent_Statics::NewProp_bAllowAutoBunnyHop_SetBit, METADATA_PARAMS(UE_ARRAY_COUNT(NewProp_bAllowAutoBunnyHop_MetaData), NewProp_bAllowAutoBunnyHop_MetaData) };
 const UECodeGen_Private::FFloatPropertyParams Z_Construct_UClass_UStrafeMovementComponent_Statics::NewProp_StrafeJumpImpulse = { "StrafeJumpImpulse", nullptr, (EPropertyFlags)0x0010000000004005, UECodeGen_Private::EPropertyGenFlags::Float, RF_Public|RF_Transient|RF_MarkAsNative, nullptr, nullptr, 1, STRUCT_OFFSET(UStrafeMovementComponent, StrafeJumpImpulse), METADATA_PARAMS(UE_ARRAY_COUNT(NewProp_StrafeJumpImpulse_MetaData), NewProp_StrafeJumpImpulse_MetaData) };
-const UECodeGen_Private::FFloatPropertyParams Z_Construct_UClass_UStrafeMovementComponent_Statics::NewProp_JumpLandTimePenalty = { "JumpLandTimePenalty", nullptr, (EPropertyFlags)0x0010000000004005, UECodeGen_Private::EPropertyGenFlags::Float, RF_Public|RF_Transient|RF_MarkAsNative, nullptr, nullptr, 1, STRUCT_OFFSET(UStrafeMovementComponent, JumpLandTimePenalty), METADATA_PARAMS(UE_ARRAY_COUNT(NewProp_JumpLandTimePenalty_MetaData), NewProp_JumpLandTimePenalty_MetaData) };
 void Z_Construct_UClass_UStrafeMovementComponent_Statics::NewProp_bEnableQuakeStepLogic_SetBit(void* Obj)
 {
 	((UStrafeMovementComponent*)Obj)->bEnableQuakeStepLogic = 1;
@@ -492,7 +498,6 @@ void Z_Construct_UClass_UStrafeMovementComponent_Statics::NewProp_ClassicQuake_b
 }
 const UECodeGen_Private::FBoolPropertyParams Z_Construct_UClass_UStrafeMovementComponent_Statics::NewProp_ClassicQuake_bAirAccelerationAllowsExceedingMaxWishSpeed = { "ClassicQuake_bAirAccelerationAllowsExceedingMaxWishSpeed", nullptr, (EPropertyFlags)0x0010000000010001, UECodeGen_Private::EPropertyGenFlags::Bool | UECodeGen_Private::EPropertyGenFlags::NativeBool, RF_Public|RF_Transient|RF_MarkAsNative, nullptr, nullptr, 1, sizeof(bool), sizeof(UStrafeMovementComponent), &Z_Construct_UClass_UStrafeMovementComponent_Statics::NewProp_ClassicQuake_bAirAccelerationAllowsExceedingMaxWishSpeed_SetBit, METADATA_PARAMS(UE_ARRAY_COUNT(NewProp_ClassicQuake_bAirAccelerationAllowsExceedingMaxWishSpeed_MetaData), NewProp_ClassicQuake_bAirAccelerationAllowsExceedingMaxWishSpeed_MetaData) };
 const UECodeGen_Private::FFloatPropertyParams Z_Construct_UClass_UStrafeMovementComponent_Statics::NewProp_ClassicQuake_StrafeJumpImpulse = { "ClassicQuake_StrafeJumpImpulse", nullptr, (EPropertyFlags)0x0010000000010001, UECodeGen_Private::EPropertyGenFlags::Float, RF_Public|RF_Transient|RF_MarkAsNative, nullptr, nullptr, 1, STRUCT_OFFSET(UStrafeMovementComponent, ClassicQuake_StrafeJumpImpulse), METADATA_PARAMS(UE_ARRAY_COUNT(NewProp_ClassicQuake_StrafeJumpImpulse_MetaData), NewProp_ClassicQuake_StrafeJumpImpulse_MetaData) };
-const UECodeGen_Private::FFloatPropertyParams Z_Construct_UClass_UStrafeMovementComponent_Statics::NewProp_ClassicQuake_JumpLandTimePenalty = { "ClassicQuake_JumpLandTimePenalty", nullptr, (EPropertyFlags)0x0010000000010001, UECodeGen_Private::EPropertyGenFlags::Float, RF_Public|RF_Transient|RF_MarkAsNative, nullptr, nullptr, 1, STRUCT_OFFSET(UStrafeMovementComponent, ClassicQuake_JumpLandTimePenalty), METADATA_PARAMS(UE_ARRAY_COUNT(NewProp_ClassicQuake_JumpLandTimePenalty_MetaData), NewProp_ClassicQuake_JumpLandTimePenalty_MetaData) };
 void Z_Construct_UClass_UStrafeMovementComponent_Statics::NewProp_ClassicQuake_bEnableQuakeStepLogic_SetBit(void* Obj)
 {
 	((UStrafeMovementComponent*)Obj)->ClassicQuake_bEnableQuakeStepLogic = 1;
@@ -508,8 +513,8 @@ const UECodeGen_Private::FPropertyParamsBase* const Z_Construct_UClass_UStrafeMo
 	(const UECodeGen_Private::FPropertyParamsBase*)&Z_Construct_UClass_UStrafeMovementComponent_Statics::NewProp_GroundAccelerationFactor,
 	(const UECodeGen_Private::FPropertyParamsBase*)&Z_Construct_UClass_UStrafeMovementComponent_Statics::NewProp_AirAccelerationFactor,
 	(const UECodeGen_Private::FPropertyParamsBase*)&Z_Construct_UClass_UStrafeMovementComponent_Statics::NewProp_bAirAccelerationAllowsExceedingMaxWishSpeed,
+	(const UECodeGen_Private::FPropertyParamsBase*)&Z_Construct_UClass_UStrafeMovementComponent_Statics::NewProp_bAllowAutoBunnyHop,
 	(const UECodeGen_Private::FPropertyParamsBase*)&Z_Construct_UClass_UStrafeMovementComponent_Statics::NewProp_StrafeJumpImpulse,
-	(const UECodeGen_Private::FPropertyParamsBase*)&Z_Construct_UClass_UStrafeMovementComponent_Statics::NewProp_JumpLandTimePenalty,
 	(const UECodeGen_Private::FPropertyParamsBase*)&Z_Construct_UClass_UStrafeMovementComponent_Statics::NewProp_bEnableQuakeStepLogic,
 	(const UECodeGen_Private::FPropertyParamsBase*)&Z_Construct_UClass_UStrafeMovementComponent_Statics::NewProp_QuakeStepHeight,
 	(const UECodeGen_Private::FPropertyParamsBase*)&Z_Construct_UClass_UStrafeMovementComponent_Statics::NewProp_ClassicQuake_MaxWishSpeed,
@@ -519,7 +524,6 @@ const UECodeGen_Private::FPropertyParamsBase* const Z_Construct_UClass_UStrafeMo
 	(const UECodeGen_Private::FPropertyParamsBase*)&Z_Construct_UClass_UStrafeMovementComponent_Statics::NewProp_ClassicQuake_AirAccelerationFactor,
 	(const UECodeGen_Private::FPropertyParamsBase*)&Z_Construct_UClass_UStrafeMovementComponent_Statics::NewProp_ClassicQuake_bAirAccelerationAllowsExceedingMaxWishSpeed,
 	(const UECodeGen_Private::FPropertyParamsBase*)&Z_Construct_UClass_UStrafeMovementComponent_Statics::NewProp_ClassicQuake_StrafeJumpImpulse,
-	(const UECodeGen_Private::FPropertyParamsBase*)&Z_Construct_UClass_UStrafeMovementComponent_Statics::NewProp_ClassicQuake_JumpLandTimePenalty,
 	(const UECodeGen_Private::FPropertyParamsBase*)&Z_Construct_UClass_UStrafeMovementComponent_Statics::NewProp_ClassicQuake_bEnableQuakeStepLogic,
 	(const UECodeGen_Private::FPropertyParamsBase*)&Z_Construct_UClass_UStrafeMovementComponent_Statics::NewProp_ClassicQuake_QuakeStepHeight,
 };
@@ -567,10 +571,10 @@ struct Z_CompiledInDeferFile_FID_Users_phili_Documents_Unreal_Projects_Strafe_Pl
 		{ EStrafeMovementPreset_StaticEnum, TEXT("EStrafeMovementPreset"), &Z_Registration_Info_UEnum_EStrafeMovementPreset, CONSTRUCT_RELOAD_VERSION_INFO(FEnumReloadVersionInfo, 1533859899U) },
 	};
 	static constexpr FClassRegisterCompiledInInfo ClassInfo[] = {
-		{ Z_Construct_UClass_UStrafeMovementComponent, UStrafeMovementComponent::StaticClass, TEXT("UStrafeMovementComponent"), &Z_Registration_Info_UClass_UStrafeMovementComponent, CONSTRUCT_RELOAD_VERSION_INFO(FClassReloadVersionInfo, sizeof(UStrafeMovementComponent), 1594990340U) },
+		{ Z_Construct_UClass_UStrafeMovementComponent, UStrafeMovementComponent::StaticClass, TEXT("UStrafeMovementComponent"), &Z_Registration_Info_UClass_UStrafeMovementComponent, CONSTRUCT_RELOAD_VERSION_INFO(FClassReloadVersionInfo, sizeof(UStrafeMovementComponent), 3015079053U) },
 	};
 };
-static FRegisterCompiledInInfo Z_CompiledInDeferFile_FID_Users_phili_Documents_Unreal_Projects_Strafe_Plugins_StrafeMovement_Source_StrafeMovement_Public_StrafeMovementComponent_h_3093807505(TEXT("/Script/StrafeMovement"),
+static FRegisterCompiledInInfo Z_CompiledInDeferFile_FID_Users_phili_Documents_Unreal_Projects_Strafe_Plugins_StrafeMovement_Source_StrafeMovement_Public_StrafeMovementComponent_h_2195674237(TEXT("/Script/StrafeMovement"),
 	Z_CompiledInDeferFile_FID_Users_phili_Documents_Unreal_Projects_Strafe_Plugins_StrafeMovement_Source_StrafeMovement_Public_StrafeMovementComponent_h_Statics::ClassInfo, UE_ARRAY_COUNT(Z_CompiledInDeferFile_FID_Users_phili_Documents_Unreal_Projects_Strafe_Plugins_StrafeMovement_Source_StrafeMovement_Public_StrafeMovementComponent_h_Statics::ClassInfo),
 	nullptr, 0,
 	Z_CompiledInDeferFile_FID_Users_phili_Documents_Unreal_Projects_Strafe_Plugins_StrafeMovement_Source_StrafeMovement_Public_StrafeMovementComponent_h_Statics::EnumInfo, UE_ARRAY_COUNT(Z_CompiledInDeferFile_FID_Users_phili_Documents_Unreal_Projects_Strafe_Plugins_StrafeMovement_Source_StrafeMovement_Public_StrafeMovementComponent_h_Statics::EnumInfo));
