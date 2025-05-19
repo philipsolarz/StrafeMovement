@@ -122,7 +122,6 @@ void UStrafeMovementComponent::CalcVelocity(float DeltaTime, float Friction, boo
     }
 }
 
-
 void UStrafeMovementComponent::PhysWalking(float deltaTime, int32 Iterations)
 {
     if (deltaTime < MIN_TICK_TIME)
@@ -137,6 +136,27 @@ void UStrafeMovementComponent::PhysWalking(float deltaTime, int32 Iterations)
         return;
     }
 
+    // --- BEGIN MODIFICATION ---
+    // Check for jump input *before* applying friction or other ground physics,
+    // similar to Quake's PM_WalkMove order of operations.
+    // CharacterOwner->bPressedJump is a standard Engine flag indicating a jump was initiated.
+    if (CharacterOwner && CharacterOwner->bPressedJump && CharacterOwner->CanJump())
+    {
+        // Attempt the jump. DoJump() will change MovementMode to MOVE_Falling if successful.
+        if (DoJump(false)) // Pass false for bReplayingMoves, as this is a new jump action
+        {
+            // If the jump was successful, MovementMode is now MOVE_Falling.
+            // The main movement loop (PerformMovement) will call PhysFalling
+            // in the same tick or the next, depending on internal engine flow.
+            // We must not proceed with any further PhysWalking logic for this tick,
+            // especially friction or ground acceleration, as the character is now airborne.
+            return; // Exit PhysWalking early
+        }
+    }
+    // --- END MODIFICATION ---
+
+    // If no jump occurred (or CanJump was false, or DoJump failed),
+    // then proceed with normal walking physics.
     const FVector PreFrameLocation = UpdatedComponent->GetComponentLocation();
     const FVector PreFrameVelocityForStep = Velocity; // Velocity before this frame's physics for step-up decision making.
 
@@ -152,8 +172,7 @@ void UStrafeMovementComponent::PhysWalking(float deltaTime, int32 Iterations)
     FVector WishDirection = Acceleration.GetSafeNormal(); // Acceleration is input vector
     float WishSpeed = CurrentWishSpeed;
 
-
-    ApplyStrafeFriction(deltaTime); // Modifies Velocity
+    ApplyStrafeFriction(deltaTime); // Modifies Velocity. Only called if a jump didn't preempt it.
     ApplyStrafeAcceleration(WishDirection, WishSpeed, GroundAccelerationFactor, deltaTime); // Modifies Velocity
 
     Iterations++;
@@ -222,6 +241,106 @@ void UStrafeMovementComponent::PhysWalking(float deltaTime, int32 Iterations)
     }
     // *** END OF ADDED/MODIFIED SECTION ***
 }
+
+//void UStrafeMovementComponent::PhysWalking(float deltaTime, int32 Iterations)
+//{
+//    if (deltaTime < MIN_TICK_TIME)
+//    {
+//        return;
+//    }
+//
+//    if (!CharacterOwner || (!CharacterOwner->Controller && !bRunPhysicsWithNoController && !HasAnimRootMotion() && !CurrentRootMotion.HasOverrideVelocity() && (CharacterOwner->GetLocalRole() != ROLE_SimulatedProxy)))
+//    {
+//        Acceleration = FVector::ZeroVector;
+//        Velocity = FVector::ZeroVector;
+//        return;
+//    }
+//
+//    const FVector PreFrameLocation = UpdatedComponent->GetComponentLocation();
+//    const FVector PreFrameVelocityForStep = Velocity; // Velocity before this frame's physics for step-up decision making.
+//
+//    CurrentWishSpeed = MaxWishSpeed;
+//    if (IsCrouching())
+//    {
+//        // In Q3, crouch speed is typically a direct application to MaxSpeed, not a separate wishspeed.
+//        // Here, GetMaxSpeed() already considers crouch (MaxWalkSpeedCrouched).
+//        // We use CurrentWishSpeed for acceleration logic, then clamp to GetMaxSpeed() on ground.
+//        CurrentWishSpeed = GetMaxSpeed(); // More aligned with how GetMaxSpeed() works with crouch
+//    }
+//
+//    FVector WishDirection = Acceleration.GetSafeNormal(); // Acceleration is input vector
+//    float WishSpeed = CurrentWishSpeed;
+//
+//
+//    ApplyStrafeFriction(deltaTime); // Modifies Velocity
+//    ApplyStrafeAcceleration(WishDirection, WishSpeed, GroundAccelerationFactor, deltaTime); // Modifies Velocity
+//
+//    Iterations++;
+//    bJustTeleported = false;
+//
+//    FHitResult Hit(1.f);
+//    FVector Adjusted = Velocity * deltaTime; // Adjusted is the attempted move delta based on *current* Velocity
+//
+//    SafeMoveUpdatedComponent(Adjusted, UpdatedComponent->GetComponentQuat(), true, Hit);
+//
+//    if (Hit.Time < 1.f && Hit.IsValidBlockingHit())
+//    {
+//        bool bStepped = false;
+//        if (bEnableQuakeStepLogic && QuakeStepHeight > 0.f)
+//        {
+//            // Pass the velocity state *before* friction and acceleration for *this frame* were applied.
+//            // Or, pass the velocity that was intended for *this movement attempt*.
+//            // Q3's PM_StepSlideMove uses velocity *before* the slide attempt that hit the wall.
+//            // In our case, Velocity has been updated by friction/accel. PreFrameVelocityForStep stored it before that.
+//            // However, the *intent* of the move (Adjusted) was based on the new Velocity.
+//            // For TryStrafeStepUp, it needs the velocity that *led to the collision* if it's re-attempting part of that move.
+//            // The provided `PreFrameVelocity` in the call below is actually the velocity at the *start of the PhysWalking tick*.
+//            // The original Q3 PM_StepSlideMove's `start_v` is the velocity *before* the PM_SlideMove that failed.
+//            // So, if `Adjusted` was based on `Velocity` (after accel/friction), then `Velocity` at this point is what caused `Hit`.
+//            bStepped = TryStrafeStepUp(Hit, PreFrameLocation, Velocity /*Velocity that led to this hit*/, deltaTime);
+//        }
+//
+//        if (!bStepped)
+//        {
+//            FVector RemainingAdjusted = Adjusted * (1.f - Hit.Time);
+//            HandleImpact(Hit, deltaTime, RemainingAdjusted);
+//            SlideAlongSurface(RemainingAdjusted, 1.f, Hit.Normal, Hit, true);
+//        }
+//    }
+//
+//    FindFloor(UpdatedComponent->GetComponentLocation(), CurrentFloor, false);
+//
+//    // *** ADDED/MODIFIED SECTION FOR STICKING FIX ***
+//    if (!CurrentFloor.IsWalkableFloor())
+//    {
+//        // Not on a walkable surface. Switch to falling mode.
+//        // This is crucial to prevent sticking when walking off ledges or after certain collisions.
+//        SetMovementMode(MOVE_Falling);
+//        // StartNewPhysics() is typically called by the engine when mode changes.
+//        // We return here so PhysFalling takes over next tick or later in the current tick if StartNewPhysics dictates.
+//        return;
+//    }
+//    else
+//    {
+//        // If on a walkable floor, ensure Z velocity is grounded unless actively jumping or affected by an impulse.
+//        // Standard UCMC behavior after FindFloor if (CurrentFloor.IsWalkableFloor()):
+//        // Velocity.Z = 0.f; (If not launching up a ramp or after step up)
+//        // Our step-up logic already handles Velocity.Z.
+//        // For general walking, non-positive Z velocity is expected.
+//        if (Velocity.Z > 0.f && !bStrafeJumpHeld && GetMovementBase() == CurrentFloor.HitResult.GetComponent())
+//        {
+//            // This case (positive Z while on ground and not jumping) should ideally not happen
+//            // unless from an external impulse that didn't change mode, or a very bouncy step.
+//            // FindFloor should generally handle Z adjustment.
+//            // For safety, if we're on a walkable floor and somehow have upward Z velocity without jumping, clear it.
+//            // However, this could interfere with things like ramp jumps if those were to be added.
+//            // Quake movement typically hard-sets Z to 0 on ground unless jumping.
+//            // Let's be less aggressive here and trust FindFloor/StepUp, plus the jump logic.
+//            // The critical part is the transition to MOVE_Falling above.
+//        }
+//    }
+//    // *** END OF ADDED/MODIFIED SECTION ***
+//}
 
 
 void UStrafeMovementComponent::PhysFalling(float deltaTime, int32 Iterations)
@@ -347,6 +466,8 @@ void UStrafeMovementComponent::ApplyStrafeFriction(float DeltaTime)
     }
 }
 
+
+
 void UStrafeMovementComponent::ApplyStrafeAcceleration(const FVector& WishDirection, float WishSpeed, float AccelerationParam, float DeltaTime)
 {
     if (WishDirection.IsNearlyZero() || WishSpeed <= 0.f || AccelerationParam <= 0.f || DeltaTime <= 0.f)
@@ -357,45 +478,43 @@ void UStrafeMovementComponent::ApplyStrafeAcceleration(const FVector& WishDirect
     FVector CurrentVelocityForAccel = Velocity;
     if (MovementMode == MOVE_Falling)
     {
+        // Only consider XY plane for air acceleration calculations against WishSpeed limit
         CurrentVelocityForAccel = FVector(Velocity.X, Velocity.Y, 0.f);
     }
 
-    float CurrentSpeedAlongWishDir = FVector::DotProduct(CurrentVelocityForAccel, WishDirection);
-    float AddSpeed = WishSpeed - CurrentSpeedAlongWishDir;
+    float currentSpeedAlongWishDir = FVector::DotProduct(CurrentVelocityForAccel, WishDirection);
+    float addSpeed = WishSpeed - currentSpeedAlongWishDir;
 
-    if (AddSpeed <= 0.f && !(bAirAccelerationAllowsExceedingMaxWishSpeed && MovementMode == MOVE_Falling))
+    // This is the fundamental Quake rule: only accelerate if the speed component
+    // in the desired direction is less than the wish speed.
+    if (addSpeed <= 0.f)
     {
+        // If bAirAccelerationAllowsExceedingMaxWishSpeed was meant for something else (like ignoring
+        // the clamping of accelAmount to addSpeed), that would be a different logic.
+        // For true Quake feel, this return is essential.
         return;
     }
 
-    float AccelAmount = AccelerationParam * DeltaTime * WishSpeed;
+    // Calculate ideal acceleration amount for this frame
+    // Q3: accelspeed = accel_param * pml.frametime * wishspeed_config;
+    float accelAmount = AccelerationParam * DeltaTime * WishSpeed;
 
-    if (MovementMode == MOVE_Walking || (MovementMode == MOVE_Falling && !bAirAccelerationAllowsExceedingMaxWishSpeed)) {
-        if (AddSpeed > 0.f && AccelAmount > AddSpeed) { // Only clamp if AddSpeed is positive and AccelAmount would exceed it
-            AccelAmount = AddSpeed;
-        }
-        else if (AddSpeed <= 0.f) { // If not trying to add speed (or moving faster), don't apply positive AccelAmount unless air strafing
-            if (!(bAirAccelerationAllowsExceedingMaxWishSpeed && MovementMode == MOVE_Falling)) {
-                AccelAmount = 0.f; // Effectively stop if AddSpeed is not positive and not permissive air mode
-            }
-        }
+    // Clamp accelAmount to not exceed addSpeed in one frame.
+    // This prevents overshooting the 'wishspeed' along 'wishdir' in a single physics tick.
+    if (accelAmount > addSpeed)
+    {
+        accelAmount = addSpeed;
     }
 
-    if (AccelAmount <= 0.f && !(bAirAccelerationAllowsExceedingMaxWishSpeed && MovementMode == MOVE_Falling && AddSpeed > -WishSpeed * 2.f /*Allow some accel if turning sharply*/)) {
-        // If AccelAmount ended up non-positive, and we are not in a permissive air strafe mode
-        // or if we are but not actively trying to change direction significantly, then don't apply.
-        // This condition might need tuning for the exact feel of air control when speed > wishspeed.
-        if (AccelAmount == 0 && AddSpeed <= 0) { /*do nothing*/ }
-        else if (AccelAmount <= 0) return;
-    }
+    FVector addedVelocity = accelAmount * WishDirection;
 
-    FVector AddedVelocity = AccelAmount * WishDirection;
+    Velocity.X += addedVelocity.X;
+    Velocity.Y += addedVelocity.Y;
+    // Z velocity is handled by gravity/jumping/etc. elsewhere
 
-    Velocity.X += AddedVelocity.X;
-    Velocity.Y += AddedVelocity.Y;
-
+    // Ground speed clamping should remain as is, if IsMovingOnGround()
     if (IsMovingOnGround()) {
-        float MaxGroundSpeed = GetMaxSpeed();
+        float MaxGroundSpeed = GetMaxSpeed(); // GetMaxSpeed() considers crouch etc.
         FVector XYVel = FVector(Velocity.X, Velocity.Y, 0);
         if (XYVel.SizeSquared() > FMath::Square(MaxGroundSpeed)) {
             XYVel = XYVel.GetSafeNormal() * MaxGroundSpeed;
