@@ -164,6 +164,8 @@ protected:
     /** Helper to check if character is against a wall that should block Z movement when falling */
     bool IsAgainstBlockingWall(const FVector& ImpactNormal) const;
 
+    UPROPERTY()
+    bool bJustLandedFrame;
 
 public:
     // For FSavedMove_Strafe to access
@@ -171,6 +173,8 @@ public:
 
     void SetIsStrafeJumpHeld(bool InValue) { bStrafeJumpHeld = InValue; }
 
+    bool GetIsJustLandedFrame() const { return bJustLandedFrame; }
+    void SetIsJustLandedFrame(bool InValue) { bJustLandedFrame = InValue; }
 };
 
 
@@ -181,10 +185,14 @@ public:
  * Stores any additional state required by UStrafeMovementComponent that needs
  * to be reconciled between client and server.
  */
+
 class FSavedMove_Strafe : public FSavedMove_Character
 {
 public:
     typedef FSavedMove_Character Super;
+
+    bool bSavedStrafeJumpHeld;
+    bool bSavedJustLandedFrame;
 
     //~ Begin FSavedMove_Character Interface
     virtual void Clear() override;
@@ -194,10 +202,7 @@ public:
     virtual void PrepMoveFor(ACharacter* C) override;
     //~ End FSavedMove_Character Interface
 
-public:
-    // Additional state to save
-    bool bSavedStrafeJumpHeld;
-    float SavedTimeSinceLanded;
+
 };
 
 
