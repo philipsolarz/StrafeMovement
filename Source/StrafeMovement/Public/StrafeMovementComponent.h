@@ -1,0 +1,221 @@
+#pragma once
+
+#include "CoreMinimal.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "StrafeMovementComponent.generated.h"
+
+// Forward declaration for our custom saved move
+class FSavedMove_Strafe;
+
+/**
+ * Enum for movement presets
+ */
+UENUM(BlueprintType)
+enum class EStrafeMovementPreset : uint8
+{
+    ClassicQuake UMETA(DisplayName = "Classic Quake"),
+    Custom UMETA(DisplayName = "Custom")
+};
+
+/**
+ * UStrafeMovementComponent
+ *
+ * Replicates Quake III Arena's core movement mechanics within the Unreal Engine framework.
+ * Focuses on ground/air acceleration, friction, jumping, and maintaining the "feel"
+ * of strafe-jumping and bunny-hopping.
+ */
+UCLASS(Config = Game)
+class STRAFEMOVEMENT_API UStrafeMovementComponent : public UCharacterMovementComponent
+{
+    GENERATED_BODY()
+
+public:
+    UStrafeMovementComponent(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+
+    //~ Begin UActorComponent Interface
+    virtual void InitializeComponent() override;
+    //~ End UActorComponent Interface
+
+    //~ Begin UCharacterMovementComponent Interface
+    virtual float GetMaxAcceleration() const override;
+    virtual float GetMaxBrakingDeceleration() const override;
+    virtual void PhysWalking(float deltaTime, int32 Iterations) override;
+    virtual void PhysFalling(float deltaTime, int32 Iterations) override;
+    virtual void CalcVelocity(float DeltaTime, float Friction, bool bFluid, float BrakingDeceleration) override;
+    virtual bool DoJump(bool bReplayingMoves) override;
+    virtual void OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode) override;
+    //~ End UCharacterMovementComponent Interface
+
+    //~ Begin INetworkPredictionInterface Interface
+    virtual class FNetworkPredictionData_Client* GetPredictionData_Client() const override;
+    //~ End INetworkPredictionInterface Interface
+
+    /** Applies a velocity impulse, useful for knockback or special jump pads. */
+    UFUNCTION(BlueprintCallable, Category = "Strafe Movement|Impulses")
+    void ApplyStrafeImpulse(const FVector& Impulse, bool bVelocityChange);
+
+    /** Sets movement parameters based on a preset. */
+    UFUNCTION(BlueprintCallable, Category = "Strafe Movement|Presets")
+    void SetMovementPreset(EStrafeMovementPreset NewPreset);
+
+    /** Get current wish speed (max speed player is trying to achieve through input) */
+    UFUNCTION(BlueprintPure, Category = "Strafe Movement|Debug")
+    float GetWishSpeed() const { return CurrentWishSpeed; }
+
+protected:
+    //~ Begin UCharacterMovementComponent Protected Interface
+    virtual void UpdateFromCompressedFlags(uint8 Flags) override;
+    //~ End UCharacterMovementComponent Protected Interface
+
+    /** Core Quake-style acceleration logic.
+     * @param WishDirection Normalized direction of desired movement.
+     * @param WishSpeed Desired speed in WishDirection.
+     * @param AccelerationParam The acceleration factor (e.g., pm_accelerate, pm_airaccelerate).
+     * @param DeltaTime Frame delta time.
+     */
+    virtual void ApplyStrafeAcceleration(const FVector& WishDirection, float WishSpeed, float AccelerationParam, float DeltaTime);
+
+    /** Core Quake-style friction logic.
+     * @param DeltaTime Frame delta time.
+     */
+    virtual void ApplyStrafeFriction(float DeltaTime);
+
+    /** Called when the player lands on the ground. */
+    virtual void OnLanded(const FHitResult& Hit);
+
+    UPROPERTY()
+    EStrafeMovementPreset CurrentMovementPreset;
+
+public:
+    // --- Strafe Movement Parameters ---
+
+    /** Maximum speed the player wishes to achieve via input (equivalent to Q3's g_speed or ps->speed). */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Strafe Movement|Core", Config)
+    float MaxWishSpeed;
+
+    /** Ground friction factor (equivalent to Q3's pm_friction). Applied when on ground. */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Strafe Movement|Ground", Config)
+    float GroundFrictionFactor;
+
+    /** Speed below which ground friction brings the player to a full stop (equivalent to Q3's pm_stopspeed). */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Strafe Movement|Ground", Config)
+    float GroundStopSpeed;
+
+    /** Acceleration factor when on ground (equivalent to Q3's pm_accelerate). */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Strafe Movement|Ground", Config)
+    float GroundAccelerationFactor;
+
+    /** Acceleration factor when in air (equivalent to Q3's pm_airaccelerate). */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Strafe Movement|Air", Config)
+    float AirAccelerationFactor;
+
+    /** If true, air acceleration is not limited by the MaxWishSpeed. This allows for traditional bunny hopping/strafe jumping. */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Strafe Movement|Air", Config)
+    bool bAirAccelerationAllowsExceedingMaxWishSpeed;
+
+    /** Initial vertical velocity for a jump (equivalent to Q3's JUMP_VELOCITY). */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Strafe Movement|Jumping", Config)
+    float StrafeJumpImpulse;
+
+    /** Duration (in seconds) after landing during which another jump is disallowed (approximates Q3's PMF_TIME_LAND). */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Strafe Movement|Jumping", Config)
+    float JumpLandTimePenalty;
+
+    // --- Movement Presets Data (Example) ---
+    UPROPERTY(EditDefaultsOnly, Category = "Strafe Movement|Presets|ClassicQuake")
+    float ClassicQuake_MaxWishSpeed = 320.f;
+    UPROPERTY(EditDefaultsOnly, Category = "Strafe Movement|Presets|ClassicQuake")
+    float ClassicQuake_GroundFrictionFactor = 6.f;
+    UPROPERTY(EditDefaultsOnly, Category = "Strafe Movement|Presets|ClassicQuake")
+    float ClassicQuake_GroundStopSpeed = 100.f;
+    UPROPERTY(EditDefaultsOnly, Category = "Strafe Movement|Presets|ClassicQuake")
+    float ClassicQuake_GroundAccelerationFactor = 10.f;
+    UPROPERTY(EditDefaultsOnly, Category = "Strafe Movement|Presets|ClassicQuake")
+    float ClassicQuake_AirAccelerationFactor = 1.f;
+    UPROPERTY(EditDefaultsOnly, Category = "Strafe Movement|Presets|ClassicQuake")
+    bool ClassicQuake_bAirAccelerationAllowsExceedingMaxWishSpeed = true;
+    UPROPERTY(EditDefaultsOnly, Category = "Strafe Movement|Presets|ClassicQuake")
+    float ClassicQuake_StrafeJumpImpulse = 270.f;
+    UPROPERTY(EditDefaultsOnly, Category = "Strafe Movement|Presets|ClassicQuake")
+    float ClassicQuake_JumpLandTimePenalty = 0.25f;
+
+
+protected:
+    /** Internal flag to track if jump button is held for network prediction. */
+    bool bStrafeJumpHeld;
+
+    /** Timer to disallow jumping immediately after landing. */
+    float TimeSinceLanded;
+
+    /** Current wish speed based on input, before acceleration logic modifies velocity. */
+    float CurrentWishSpeed;
+
+    /**
+     * Custom Quake-style velocity clipping.
+     * Based on PM_ClipVelocity from bg_pmove.c.
+     * Slides velocity along the impact normal.
+     * @param InVelocity The velocity to be clipped.
+     * @param ImpactNormal The normal of the surface impacted.
+     * @param Overbounce A factor to slightly push away from the surface (Q3's OVERCLIP).
+     * @return The clipped velocity.
+     */
+    FVector ClipVelocity(const FVector& InVelocity, const FVector& ImpactNormal, float Overbounce = 1.001f) const;
+
+    /** Helper to check if character is against a wall that should block Z movement when falling */
+    bool IsAgainstBlockingWall(const FVector& ImpactNormal) const;
+
+
+public:
+    // For FSavedMove_Strafe to access
+    bool GetIsStrafeJumpHeld() const { return bStrafeJumpHeld; }
+    float GetTimeSinceLanded() const { return TimeSinceLanded; }
+
+    void SetIsStrafeJumpHeld(bool InValue) { bStrafeJumpHeld = InValue; }
+    void SetTimeSinceLanded(float InValue) { TimeSinceLanded = InValue; }
+
+};
+
+
+/**
+ * FSavedMove_Strafe
+ *
+ * Custom saved move struct for network prediction.
+ * Stores any additional state required by UStrafeMovementComponent that needs
+ * to be reconciled between client and server.
+ */
+class FSavedMove_Strafe : public FSavedMove_Character
+{
+public:
+    typedef FSavedMove_Character Super;
+
+    //~ Begin FSavedMove_Character Interface
+    virtual void Clear() override;
+    virtual uint8 GetCompressedFlags() const override;
+    virtual bool CanCombineWith(const FSavedMovePtr& NewMove, ACharacter* InCharacter, float MaxDelta) const override;
+    virtual void SetMoveFor(ACharacter* C, float InDeltaTime, FVector const& NewAccel, class FNetworkPredictionData_Client_Character& ClientData) override;
+    virtual void PrepMoveFor(ACharacter* C) override;
+    //~ End FSavedMove_Character Interface
+
+public:
+    // Additional state to save
+    bool bSavedStrafeJumpHeld;
+    float SavedTimeSinceLanded;
+};
+
+
+/**
+ * FNetworkPredictionData_Client_Strafe
+ *
+ * Custom client prediction data.
+ */
+class FNetworkPredictionData_Client_Strafe : public FNetworkPredictionData_Client_Character
+{
+public:
+    typedef FNetworkPredictionData_Client_Character Super;
+
+    FNetworkPredictionData_Client_Strafe(const UCharacterMovementComponent& ClientMovement);
+
+    //~ Begin FNetworkPredictionData_Client_Character Interface
+    virtual FSavedMovePtr AllocateNewMove() override;
+    //~ End FNetworkPredictionData_Client_Character Interface
+};

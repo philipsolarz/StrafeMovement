@@ -1,0 +1,12 @@
+{
+	"RemapUnityFiles": 
+	{
+		"Module.StrafeMovement.cpp.obj": [
+			"StrafeMovement.init.gen.cpp.obj",
+			"StrafeMovementComponent.gen.cpp.obj",
+			"PerModuleInline.gen.cpp.obj",
+			"StrafeMovement.cpp.obj",
+			"StrafeMovementComponent.cpp.obj"
+		]
+	}
+}
