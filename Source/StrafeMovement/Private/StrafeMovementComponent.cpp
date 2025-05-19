@@ -11,7 +11,6 @@ void FSavedMove_Strafe::Clear()
 {
     Super::Clear();
     bSavedStrafeJumpHeld = false;
-    SavedTimeSinceLanded = 0.f;
 }
 
 uint8 FSavedMove_Strafe::GetCompressedFlags() const
@@ -38,7 +37,6 @@ void FSavedMove_Strafe::SetMoveFor(ACharacter* C, float InDeltaTime, FVector con
     if (StrafeComp)
     {
         bSavedStrafeJumpHeld = StrafeComp->GetIsStrafeJumpHeld();
-        SavedTimeSinceLanded = StrafeComp->GetTimeSinceLanded();
     }
 }
 
@@ -50,7 +48,6 @@ void FSavedMove_Strafe::PrepMoveFor(ACharacter* C)
     if (StrafeComp)
     {
         StrafeComp->SetIsStrafeJumpHeld(bSavedStrafeJumpHeld);
-        StrafeComp->SetTimeSinceLanded(SavedTimeSinceLanded);
     }
 }
 
@@ -85,7 +82,6 @@ UStrafeMovementComponent::UStrafeMovementComponent(const FObjectInitializer& Obj
     SetWalkableFloorZ(0.7f);
 
     bStrafeJumpHeld = false;
-    TimeSinceLanded = 0.f;
     CurrentWishSpeed = 0.f;
     bAirAccelerationAllowsExceedingMaxWishSpeed = true;
     bEnableQuakeStepLogic = true; // Default to enabled
@@ -192,7 +188,6 @@ void UStrafeMovementComponent::PhysWalking(float deltaTime, int32 Iterations)
 }
 
 
-// PhysFalling (same as before) ...
 void UStrafeMovementComponent::PhysFalling(float deltaTime, int32 Iterations)
 {
     if (deltaTime < MIN_TICK_TIME)
@@ -200,15 +195,18 @@ void UStrafeMovementComponent::PhysFalling(float deltaTime, int32 Iterations)
         return;
     }
 
-    Velocity += FVector(0.f, 0.f, GetGravityZ()) * GravityScale * deltaTime;
+    // Store velocity before gravity and acceleration for this tick.
+    FVector PreMoveVelocity = Velocity;
 
-    if (TimeSinceLanded < JumpLandTimePenalty + deltaTime)
-    {
-        TimeSinceLanded += deltaTime;
-    }
+    // Apply gravity. Velocity.Z will now have this frame's gravity adjustment.
+    Velocity.Z += GetGravityZ() * GravityScale * deltaTime;
+
+    // Store the Z velocity that includes this frame's gravity, *before* any X/Y air acceleration or collision response.
+    // This is the Z component we want to ensure is largely preserved if we only slide horizontally.
+    const float ZVelocityAfterGravity = Velocity.Z;
 
     FVector WishDirection = Acceleration.GetSafeNormal();
-    CurrentWishSpeed = MaxWishSpeed;
+    CurrentWishSpeed = MaxWishSpeed; // You might want to use GetMaxSpeed() if crouch/etc. affects air speed wish.
 
     FVector AirWishDir = WishDirection;
     AirWishDir.Z = 0;
@@ -217,43 +215,64 @@ void UStrafeMovementComponent::PhysFalling(float deltaTime, int32 Iterations)
         AirWishDir = FVector::ZeroVector;
     }
 
-
     if (!AirWishDir.IsNearlyZero())
     {
+        // ApplyStrafeAcceleration modifies Velocity.X and Velocity.Y based on AirWishDir and AirAccelerationFactor
         ApplyStrafeAcceleration(AirWishDir, CurrentWishSpeed, AirAccelerationFactor, deltaTime);
     }
+    // At this point, Velocity.X and Velocity.Y are from air acceleration,
+    // and Velocity.Z is ZVelocityAfterGravity (original Z + this frame's gravity).
 
     Iterations++;
     bJustTeleported = false;
 
     const FVector OldLocation = UpdatedComponent->GetComponentLocation();
     const FQuat OldRotation = UpdatedComponent->GetComponentQuat();
-
     FHitResult Hit(1.f);
+
+    // Adjusted uses the Velocity that has now been affected by gravity and air acceleration.
     FVector Adjusted = Velocity * deltaTime;
     SafeMoveUpdatedComponent(Adjusted, OldRotation, true, Hit);
 
-    if (Hit.Time < 1.f)
+    if (Hit.Time < 1.f) // If we hit something
     {
-        const FVector OldVel = Velocity;
-        ProcessLanded(Hit, deltaTime, Iterations);
-        OnLanded(Hit);
+        const FVector OldVelImpact = Velocity; // Velocity just before impact-related functions
+        ProcessLanded(Hit, deltaTime, Iterations); // This might change MovementMode
 
-        if (MovementMode == MOVE_Walking)
+        if (MovementMode == MOVE_Walking && OldVelImpact.Z < 0.f) // Check if we actually landed from a fall
         {
-            return;
+            OnLanded(Hit); // Ensure OnLanded logic (including auto-jump) runs if ProcessLanded put us in Walking
+            return; // Exit, PhysWalking will take over next tick.
         }
-        HandleImpact(Hit, deltaTime, Adjusted);
+
+        // If still falling after ProcessLanded (i.e., hit a wall or steep slope):
+        // HandleImpact can modify 'this->Velocity'.
+        HandleImpact(Hit, deltaTime, Adjusted * (1.f - Hit.Time));
+
+        // 'this->Velocity' might have been changed by HandleImpact.
+        // Now, slide. SlideAlongSurface also modifies 'this->Velocity'.
         SlideAlongSurface(Adjusted, (1.f - Hit.Time), Hit.Normal, Hit, true);
+
+        // After sliding, if the impact was against a very vertical wall,
+        // restore the Z velocity to what it was after gravity was applied for this frame.
+        // This prevents the Z velocity from being improperly zeroed or altered by a purely horizontal slide.
+        if (FMath::Abs(Hit.ImpactNormal.Z) < KINDA_SMALL_NUMBER && MovementMode == MOVE_Falling) // KINDA_SMALL_NUMBER for very vertical wall
+        {
+            Velocity.Z = ZVelocityAfterGravity;
+        }
+        // If it was a slope, SlideAlongSurface's modification of Z is generally more appropriate.
     }
 
+    // This existing check stops upward Z movement if hitting a "blocking wall" while moving up.
     if (Hit.IsValidBlockingHit() && IsAgainstBlockingWall(Hit.ImpactNormal))
     {
-        if (Velocity.Z > 0.f) Velocity.Z = 0.f;
+        if (Velocity.Z > 0.f)
+        {
+            Velocity.Z = 0.f;
+        }
     }
 }
 
-// ApplyStrafeFriction (same as before) ...
 void UStrafeMovementComponent::ApplyStrafeFriction(float DeltaTime)
 {
     float Speed = Velocity.Size2D();
@@ -287,7 +306,6 @@ void UStrafeMovementComponent::ApplyStrafeFriction(float DeltaTime)
     }
 }
 
-// ApplyStrafeAcceleration (same as before, with small correction for AddSpeed > 0 check) ...
 void UStrafeMovementComponent::ApplyStrafeAcceleration(const FVector& WishDirection, float WishSpeed, float AccelerationParam, float DeltaTime)
 {
     if (WishDirection.IsNearlyZero() || WishSpeed <= 0.f || AccelerationParam <= 0.f || DeltaTime <= 0.f)
@@ -346,26 +364,22 @@ void UStrafeMovementComponent::ApplyStrafeAcceleration(const FVector& WishDirect
     }
 }
 
-// DoJump, OnMovementModeChanged, OnLanded (same as before) ...
 bool UStrafeMovementComponent::DoJump(bool bReplayingMoves)
 {
-    if (CharacterOwner && CharacterOwner->CanJump())
+    bool bCanJump = false;
+    if (CharacterOwner)
     {
-        if (TimeSinceLanded < JumpLandTimePenalty && JumpLandTimePenalty > 0.f)
-        {
-            return false;
-        }
+        bCanJump = CharacterOwner->CanJump();
+    }
+    else {
+        return false;
+    }
 
-        //if (!IsMovingOnGround() && JumpCurrentCount >= JumpMaxCount)
-        //{
-        //    // Let UE's CanJump logic handle.
-        //}
-
+    if (bCanJump)
+    {
         Velocity.Z = StrafeJumpImpulse;
         SetMovementMode(MOVE_Falling);
         bStrafeJumpHeld = true;
-        TimeSinceLanded = 0.f;
-
         CharacterOwner->OnJumped();
         return true;
     }
@@ -381,11 +395,6 @@ void UStrafeMovementComponent::OnMovementModeChanged(EMovementMode PreviousMovem
         return;
     }
 
-    if (CharacterOwner && !CharacterOwner->bPressedJump)
-    {
-        bStrafeJumpHeld = false;
-    }
-
     if (IsMovingOnGround())
     {
         bStrafeJumpHeld = false;
@@ -394,11 +403,10 @@ void UStrafeMovementComponent::OnMovementModeChanged(EMovementMode PreviousMovem
 
 void UStrafeMovementComponent::OnLanded(const FHitResult& Hit)
 {
-    TimeSinceLanded = 0.0f;
     bStrafeJumpHeld = false;
 }
 
-// GetPredictionData_Client, UpdateFromCompressedFlags (same as before) ...
+
 FNetworkPredictionData_Client* UStrafeMovementComponent::GetPredictionData_Client() const
 {
     if (ClientPredictionData == nullptr)
@@ -432,7 +440,6 @@ void UStrafeMovementComponent::SetMovementPreset(EStrafeMovementPreset NewPreset
         AirAccelerationFactor = ClassicQuake_AirAccelerationFactor;
         bAirAccelerationAllowsExceedingMaxWishSpeed = ClassicQuake_bAirAccelerationAllowsExceedingMaxWishSpeed;
         StrafeJumpImpulse = ClassicQuake_StrafeJumpImpulse;
-        JumpLandTimePenalty = ClassicQuake_JumpLandTimePenalty;
         bEnableQuakeStepLogic = ClassicQuake_bEnableQuakeStepLogic;
         QuakeStepHeight = ClassicQuake_QuakeStepHeight;
 
@@ -456,7 +463,6 @@ void UStrafeMovementComponent::SetMovementPreset(EStrafeMovementPreset NewPreset
     }
 }
 
-// ApplyStrafeImpulse, ClipVelocity, IsAgainstBlockingWall (same as before) ...
 void UStrafeMovementComponent::ApplyStrafeImpulse(const FVector& Impulse, bool bVelocityChange)
 {
     if (bVelocityChange)
@@ -500,7 +506,6 @@ bool UStrafeMovementComponent::IsAgainstBlockingWall(const FVector& ImpactNormal
 }
 
 
-// Implementation of TryStrafeStepUp
 bool UStrafeMovementComponent::TryStrafeStepUp(const FHitResult& InitialBlockHit, const FVector& PreFrameLocation, const FVector& PreFrameVelocity, float DeltaTime)
 {
     if (!CharacterOwner || QuakeStepHeight <= 0.f)
