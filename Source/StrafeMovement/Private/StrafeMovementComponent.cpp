@@ -11,7 +11,6 @@ void FSavedMove_Strafe::Clear()
 {
     Super::Clear();
     bSavedStrafeJumpHeld = false;
-    SavedTimeSinceLanded = 0.f;
 }
 
 uint8 FSavedMove_Strafe::GetCompressedFlags() const
@@ -38,7 +37,6 @@ void FSavedMove_Strafe::SetMoveFor(ACharacter* C, float InDeltaTime, FVector con
     if (StrafeComp)
     {
         bSavedStrafeJumpHeld = StrafeComp->GetIsStrafeJumpHeld();
-        SavedTimeSinceLanded = StrafeComp->GetTimeSinceLanded();
     }
 }
 
@@ -50,7 +48,6 @@ void FSavedMove_Strafe::PrepMoveFor(ACharacter* C)
     if (StrafeComp)
     {
         StrafeComp->SetIsStrafeJumpHeld(bSavedStrafeJumpHeld);
-        StrafeComp->SetTimeSinceLanded(SavedTimeSinceLanded);
     }
 }
 
@@ -85,12 +82,10 @@ UStrafeMovementComponent::UStrafeMovementComponent(const FObjectInitializer& Obj
     SetWalkableFloorZ(0.7f);
 
     bStrafeJumpHeld = false;
-    TimeSinceLanded = 0.f;
     CurrentWishSpeed = 0.f;
     bAirAccelerationAllowsExceedingMaxWishSpeed = true;
     bEnableQuakeStepLogic = true; // Default to enabled
     QuakeStepHeight = 18.f;      // Default Q3 step height
-    bAllowAutoBunnyHop = true;
 }
 
 void UStrafeMovementComponent::InitializeComponent()
@@ -210,12 +205,6 @@ void UStrafeMovementComponent::PhysFalling(float deltaTime, int32 Iterations)
     // This is the Z component we want to ensure is largely preserved if we only slide horizontally.
     const float ZVelocityAfterGravity = Velocity.Z;
 
-
-    //if (TimeSinceLanded < JumpLandTimePenalty + deltaTime) // Original: Check if this is still relevant or if OnLanded handles the reset adequately for immediate jump attempts.
-    //{
-    //    TimeSinceLanded += deltaTime;
-    //}
-
     FVector WishDirection = Acceleration.GetSafeNormal();
     CurrentWishSpeed = MaxWishSpeed; // You might want to use GetMaxSpeed() if crouch/etc. affects air speed wish.
 
@@ -250,16 +239,11 @@ void UStrafeMovementComponent::PhysFalling(float deltaTime, int32 Iterations)
         const FVector OldVelImpact = Velocity; // Velocity just before impact-related functions
         ProcessLanded(Hit, deltaTime, Iterations); // This might change MovementMode
 
-        // OnLanded now handles bStrafeJumpHeld = false and TimeSinceLanded = 0.0f;
-        // It also attempts an auto-bunnyhop if enabled and conditions are met.
-        // If ProcessLanded changed mode to Walking, OnLanded would have been called.
-        // We need to call OnLanded here if we *actually* landed and are now walking.
         if (MovementMode == MOVE_Walking && OldVelImpact.Z < 0.f) // Check if we actually landed from a fall
         {
             OnLanded(Hit); // Ensure OnLanded logic (including auto-jump) runs if ProcessLanded put us in Walking
             return; // Exit, PhysWalking will take over next tick.
         }
-
 
         // If still falling after ProcessLanded (i.e., hit a wall or steep slope):
         // HandleImpact can modify 'this->Velocity'.
@@ -322,7 +306,6 @@ void UStrafeMovementComponent::ApplyStrafeFriction(float DeltaTime)
     }
 }
 
-// ApplyStrafeAcceleration (same as before, with small correction for AddSpeed > 0 check) ...
 void UStrafeMovementComponent::ApplyStrafeAcceleration(const FVector& WishDirection, float WishSpeed, float AccelerationParam, float DeltaTime)
 {
     if (WishDirection.IsNearlyZero() || WishSpeed <= 0.f || AccelerationParam <= 0.f || DeltaTime <= 0.f)
@@ -386,32 +369,20 @@ bool UStrafeMovementComponent::DoJump(bool bReplayingMoves)
     bool bCanJump = false;
     if (CharacterOwner)
     {
-        bCanJump = CharacterOwner->CanJump(); // Check ACharacter's CanJump()
-        UE_LOG(LogTemp, Warning, TEXT("[%f] DoJump: Attempting. CharacterOwner->CanJump() = %d. (IsMovingOnGround(): %d, JumpCurrentCount: %d, JumpMaxCount: %d, IsCrouching(): %d)"),
-            GetWorld()->GetTimeSeconds(),
-            bCanJump,
-            IsMovingOnGround(),
-            CharacterOwner->JumpCurrentCount,
-            CharacterOwner->JumpMaxCount,
-            IsCrouching());
+        bCanJump = CharacterOwner->CanJump();
     }
     else {
-        UE_LOG(LogTemp, Warning, TEXT("[%f] DoJump: No CharacterOwner."), GetWorld()->GetTimeSeconds());
         return false;
     }
 
-    if (bCanJump) // Use the cached result
+    if (bCanJump)
     {
-        // ... (actual jump logic)
         Velocity.Z = StrafeJumpImpulse;
         SetMovementMode(MOVE_Falling);
         bStrafeJumpHeld = true;
         CharacterOwner->OnJumped();
-        UE_LOG(LogTemp, Warning, TEXT("[%f] DoJump: Jump successful."), GetWorld()->GetTimeSeconds());
         return true;
     }
-    // bStrafeJumpHeld = false; // Only set false on landing or if input is released. Not if CanJump fails mid-air.
-    UE_LOG(LogTemp, Warning, TEXT("[%f] DoJump: CanJump() returned false."), GetWorld()->GetTimeSeconds());
     return false;
 }
 
@@ -432,31 +403,10 @@ void UStrafeMovementComponent::OnMovementModeChanged(EMovementMode PreviousMovem
 
 void UStrafeMovementComponent::OnLanded(const FHitResult& Hit)
 {
-    //Super::OnLanded(Hit);
-    TimeSinceLanded = 0.0f;
     bStrafeJumpHeld = false;
-
-    if (CharacterOwner)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("[%f] OnLanded. bPressedJump: %d, bAllowAutoBunnyHop: %d, JumpCurrentCount: %d, Max: %d, IsMovingOnGround: %d"),
-            GetWorld()->GetTimeSeconds(),
-            CharacterOwner->bPressedJump,
-            bAllowAutoBunnyHop,
-            CharacterOwner->JumpCurrentCount,
-            CharacterOwner->JumpMaxCount,
-            IsMovingOnGround());
-    }
-
-
-    if (bAllowAutoBunnyHop && CharacterOwner && CharacterOwner->bPressedJump)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("[%f] OnLanded: Attempting auto DoJump..."), GetWorld()->GetTimeSeconds());
-        bool bDidAutoJump = DoJump(false);
-        UE_LOG(LogTemp, Warning, TEXT("[%f] OnLanded: Auto DoJump result: %d"), GetWorld()->GetTimeSeconds(), bDidAutoJump);
-    }
 }
 
-// GetPredictionData_Client, UpdateFromCompressedFlags (same as before) ...
+
 FNetworkPredictionData_Client* UStrafeMovementComponent::GetPredictionData_Client() const
 {
     if (ClientPredictionData == nullptr)
@@ -490,7 +440,6 @@ void UStrafeMovementComponent::SetMovementPreset(EStrafeMovementPreset NewPreset
         AirAccelerationFactor = ClassicQuake_AirAccelerationFactor;
         bAirAccelerationAllowsExceedingMaxWishSpeed = ClassicQuake_bAirAccelerationAllowsExceedingMaxWishSpeed;
         StrafeJumpImpulse = ClassicQuake_StrafeJumpImpulse;
-        //JumpLandTimePenalty = ClassicQuake_JumpLandTimePenalty;
         bEnableQuakeStepLogic = ClassicQuake_bEnableQuakeStepLogic;
         QuakeStepHeight = ClassicQuake_QuakeStepHeight;
 
@@ -514,7 +463,6 @@ void UStrafeMovementComponent::SetMovementPreset(EStrafeMovementPreset NewPreset
     }
 }
 
-// ApplyStrafeImpulse, ClipVelocity, IsAgainstBlockingWall (same as before) ...
 void UStrafeMovementComponent::ApplyStrafeImpulse(const FVector& Impulse, bool bVelocityChange)
 {
     if (bVelocityChange)
@@ -558,7 +506,6 @@ bool UStrafeMovementComponent::IsAgainstBlockingWall(const FVector& ImpactNormal
 }
 
 
-// Implementation of TryStrafeStepUp
 bool UStrafeMovementComponent::TryStrafeStepUp(const FHitResult& InitialBlockHit, const FVector& PreFrameLocation, const FVector& PreFrameVelocity, float DeltaTime)
 {
     if (!CharacterOwner || QuakeStepHeight <= 0.f)
