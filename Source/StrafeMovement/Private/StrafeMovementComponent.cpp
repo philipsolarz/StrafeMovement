@@ -1,4 +1,4 @@
-#include "StrafeMovementComponent.h"
+﻿#include "StrafeMovementComponent.h"
 #include "GameFramework/Character.h"
 #include "Components/CapsuleComponent.h" // Required for GetCapsuleComponent()
 #include "Net/UnrealNetwork.h" 
@@ -151,7 +151,7 @@ void UStrafeMovementComponent::PhysWalking(float deltaTime, int32 Iterations)
     {
         if (DoJump(false))
         {
-             UE_LOG(LogTemp, Log, TEXT("PhysWalking: Jumped early, returning."));
+            UE_LOG(LogTemp, Log, TEXT("PhysWalking: Jumped early, returning."));
             return;
         }
     }
@@ -208,7 +208,7 @@ void UStrafeMovementComponent::PhysWalking(float deltaTime, int32 Iterations)
     {
         if (bJustLandedFrame)
         {
-             UE_LOG(LogTemp, Log, TEXT("PhysWalking: Consuming bJustLandedFrame at end of tick."));
+            UE_LOG(LogTemp, Log, TEXT("PhysWalking: Consuming bJustLandedFrame at end of tick."));
             bJustLandedFrame = false;
         }
     }
@@ -222,14 +222,10 @@ void UStrafeMovementComponent::PhysFalling(float deltaTime, int32 Iterations)
         return;
     }
 
-    // Store velocity before gravity and acceleration for this tick.
     FVector PreMoveVelocity = Velocity;
 
-    // Apply gravity. Velocity.Z will now have this frame's gravity adjustment.
     Velocity.Z += GetGravityZ() * GravityScale * deltaTime;
 
-    // Store the Z velocity that includes this frame's gravity, *before* any X/Y air acceleration or collision response.
-    // This is the Z component we want to ensure is largely preserved if we only slide horizontally.
     const float ZVelocityAfterGravity = Velocity.Z;
 
     FVector WishDirection = Acceleration.GetSafeNormal();
@@ -309,7 +305,7 @@ void UStrafeMovementComponent::ApplyStrafeFriction(float DeltaTime)
 
     if (bJustLandedFrame)
     {
-         UE_LOG(LogTemp, Log, TEXT("ApplyStrafeFriction: SKIPPING friction, bJustLandedFrame is true."));
+        UE_LOG(LogTemp, Log, TEXT("ApplyStrafeFriction: SKIPPING friction, bJustLandedFrame is true."));
         return;
     }
 
@@ -402,6 +398,8 @@ void UStrafeMovementComponent::ApplyStrafeAcceleration(const FVector& WishDirect
     }
 }
 
+
+
 bool UStrafeMovementComponent::DoJump(bool bReplayingMoves)
 {
     bool bCanJump = CharacterOwner ? CharacterOwner->CanJump() : false;
@@ -441,7 +439,7 @@ void UStrafeMovementComponent::OnMovementModeChanged(EMovementMode PreviousMovem
             )
         {
             bJustLandedFrame = true;
-             UE_LOG(LogTemp, Log, TEXT("Landed: bJustLandedFrame SET to true. PreviousMode: %d, CurrentMode: %d"), PreviousMovementMode, MovementMode.GetValue());
+            UE_LOG(LogTemp, Log, TEXT("Landed: bJustLandedFrame SET to true. PreviousMode: %d, CurrentMode: %d"), PreviousMovementMode, MovementMode.GetValue());
         }
         // If already on ground and mode changes between ground modes (e.g. walking to crouching),
         // bJustLandedFrame should not be set true again unless it was already true and is consumed.
@@ -451,7 +449,7 @@ void UStrafeMovementComponent::OnMovementModeChanged(EMovementMode PreviousMovem
     {
         // If we are no longer on the ground (e.g., started falling, jumped, launched)
         bJustLandedFrame = false;
-         UE_LOG(LogTemp, Log, TEXT("Airborne/Other: bJustLandedFrame CLEARED. PreviousMode: %d, CurrentMode: %d"), PreviousMovementMode, MovementMode.GetValue());
+        UE_LOG(LogTemp, Log, TEXT("Airborne/Other: bJustLandedFrame CLEARED. PreviousMode: %d, CurrentMode: %d"), PreviousMovementMode, MovementMode.GetValue());
     }
 }
 
