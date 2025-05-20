@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -15,6 +15,26 @@ enum class EStrafeMovementPreset : uint8
 {
     ClassicQuake UMETA(DisplayName = "Classic Quake"),
     Custom UMETA(DisplayName = "Custom")
+};
+
+USTRUCT(BlueprintType)
+struct FStrafeAngleInfo
+{
+    GENERATED_BODY()
+
+    UPROPERTY(BlueprintReadOnly, Category = "Strafe Angles")
+    float CurrentDeltaDegrees; // Actual angle between velocity and wishdir
+
+    UPROPERTY(BlueprintReadOnly, Category = "Strafe Angles")
+    float OptimalDeltaDegrees; // δ_opt
+
+    UPROPERTY(BlueprintReadOnly, Category = "Strafe Angles")
+    float MinDeltaDegrees;     // δ_min
+
+    UPROPERTY(BlueprintReadOnly, Category = "Strafe Angles")
+    float MaxGainDeltaDegrees; // δ_max (boundary for any speed gain)
+
+    FStrafeAngleInfo() : CurrentDeltaDegrees(0.f), OptimalDeltaDegrees(0.f), MinDeltaDegrees(0.f), MaxGainDeltaDegrees(0.f) {}
 };
 
 /**
@@ -61,6 +81,41 @@ public:
     /** Get current wish speed (max speed player is trying to achieve through input) */
     UFUNCTION(BlueprintPure, Category = "Strafe Movement|Debug")
     float GetWishSpeed() const { return CurrentWishSpeed; }
+
+
+
+
+
+    UFUNCTION(BlueprintPure, Category = "Strafe Movement|HUD|WorldSpace")
+    FVector2D GetWorldVelocity2D() const;
+
+    UFUNCTION(BlueprintPure, Category = "Strafe Movement|HUD|WorldSpace")
+    FVector2D GetWorldPlayerOrientation2D() const;
+
+    UFUNCTION(BlueprintPure, Category = "Strafe Movement|HUD|WorldSpace")
+    FVector2D GetWorldWishDirection2D() const;
+
+    // New functions for Player-Relative 2D Vectors for the HUD
+    UFUNCTION(BlueprintPure, Category = "Strafe Movement|HUD|PlayerRelative")
+    FVector2D GetPlayerRelativeVelocity2D() const;
+
+    UFUNCTION(BlueprintPure, Category = "Strafe Movement|HUD|PlayerRelative")
+    FVector2D GetPlayerRelativeWishDirection2D() const;
+
+    UFUNCTION(BlueprintPure, Category = "Strafe Movement|HUD")
+    float GetSpeedCapS() const { return MaxWishSpeed; }
+
+    UFUNCTION(BlueprintPure, Category = "Strafe Movement|HUD")
+    float GetEffectiveAccelerationA() const;
+
+    UFUNCTION(BlueprintPure, Category = "Strafe Movement|HUD")
+    FStrafeAngleInfo GetStrafeAngleInfo() const; // This should still calculate delta based on world vectors.
+
+    // Helper to get the rotation from world to player's local 2D orientation (where player's forward is "up")
+    FRotator GetPlayerOrientationInverseRotation() const;
+
+
+
 
 protected:
     //~ Begin UCharacterMovementComponent Protected Interface

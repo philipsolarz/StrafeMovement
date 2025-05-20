@@ -151,7 +151,6 @@ void UStrafeMovementComponent::PhysWalking(float deltaTime, int32 Iterations)
     {
         if (DoJump(false))
         {
-            UE_LOG(LogTemp, Log, TEXT("PhysWalking: Jumped early, returning."));
             return;
         }
     }
@@ -200,7 +199,6 @@ void UStrafeMovementComponent::PhysWalking(float deltaTime, int32 Iterations)
     if (!CurrentFloor.IsWalkableFloor())
     {
         SetMovementMode(MOVE_Falling);
-        UE_LOG(LogTemp, Log, TEXT("PhysWalking: No walkable floor, switching to Falling. bJustLandedFrame should be cleared by OnMMChanged."));
         return;
     }
 
@@ -208,7 +206,6 @@ void UStrafeMovementComponent::PhysWalking(float deltaTime, int32 Iterations)
     {
         if (bJustLandedFrame)
         {
-            UE_LOG(LogTemp, Log, TEXT("PhysWalking: Consuming bJustLandedFrame at end of tick."));
             bJustLandedFrame = false;
         }
     }
@@ -305,7 +302,6 @@ void UStrafeMovementComponent::ApplyStrafeFriction(float DeltaTime)
 
     if (bJustLandedFrame)
     {
-        UE_LOG(LogTemp, Log, TEXT("ApplyStrafeFriction: SKIPPING friction, bJustLandedFrame is true."));
         return;
     }
 
@@ -387,7 +383,7 @@ void UStrafeMovementComponent::ApplyStrafeAcceleration(const FVector& WishDirect
     // Z velocity is handled by gravity/jumping/etc. elsewhere
 
     // Ground speed clamping should remain as is, if IsMovingOnGround()
-    if (IsMovingOnGround()) {
+    if (IsMovingOnGround() && !bJustLandedFrame) {
         float MaxGroundSpeed = GetMaxSpeed(); // GetMaxSpeed() considers crouch etc.
         FVector XYVel = FVector(Velocity.X, Velocity.Y, 0);
         if (XYVel.SizeSquared() > FMath::Square(MaxGroundSpeed)) {
@@ -407,7 +403,6 @@ bool UStrafeMovementComponent::DoJump(bool bReplayingMoves)
     if (bCanJump)
     {
         bJustLandedFrame = false;
-        UE_LOG(LogTemp, Log, TEXT("DoJump: bJustLandedFrame CLEARED due to jump."));
         Velocity.Z = StrafeJumpImpulse;
         SetMovementMode(MOVE_Falling);
         bStrafeJumpHeld = true;
@@ -439,7 +434,6 @@ void UStrafeMovementComponent::OnMovementModeChanged(EMovementMode PreviousMovem
             )
         {
             bJustLandedFrame = true;
-            UE_LOG(LogTemp, Log, TEXT("Landed: bJustLandedFrame SET to true. PreviousMode: %d, CurrentMode: %d"), PreviousMovementMode, MovementMode.GetValue());
         }
         // If already on ground and mode changes between ground modes (e.g. walking to crouching),
         // bJustLandedFrame should not be set true again unless it was already true and is consumed.
@@ -449,7 +443,6 @@ void UStrafeMovementComponent::OnMovementModeChanged(EMovementMode PreviousMovem
     {
         // If we are no longer on the ground (e.g., started falling, jumped, launched)
         bJustLandedFrame = false;
-        UE_LOG(LogTemp, Log, TEXT("Airborne/Other: bJustLandedFrame CLEARED. PreviousMode: %d, CurrentMode: %d"), PreviousMovementMode, MovementMode.GetValue());
     }
 }
 
@@ -698,4 +691,125 @@ bool UStrafeMovementComponent::TryStrafeStepUp(const FHitResult& InitialBlockHit
     // The `Velocity = PreFrameVelocity` line above is probably not needed if PhysWalking handles velocity state.
     // Let's remove it; PhysWalking will use the velocity that resulted in the InitialBlockHit for its fallback slide.
     return false;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+FVector2D UStrafeMovementComponent::GetWorldVelocity2D() const
+{
+    return FVector2D(Velocity.X, Velocity.Y);
+}
+
+FVector2D UStrafeMovementComponent::GetWorldPlayerOrientation2D() const
+{
+    if (CharacterOwner)
+    {
+        return FVector2D(CharacterOwner->GetActorForwardVector().X, CharacterOwner->GetActorForwardVector().Y).GetSafeNormal();
+    }
+    return FVector2D::ZeroVector;
+}
+
+FVector2D UStrafeMovementComponent::GetWorldWishDirection2D() const
+{
+    return FVector2D(Acceleration.X, Acceleration.Y).GetSafeNormal();
+}
+
+
+FRotator UStrafeMovementComponent::GetPlayerOrientationInverseRotation() const
+{
+    if (CharacterOwner)
+    {
+        // Get the character's 2D orientation in the world
+        FVector ForwardVector = CharacterOwner->GetActorForwardVector();
+        // We only care about yaw for 2D top-down relative display
+        float YawRad = FMath::Atan2(ForwardVector.Y, ForwardVector.X);
+        // The rotation needed to make this orientation point "up" (positive X in UE's 2D rotated space, or however you define "up" in your HUD)
+        // If your HUD's "up" corresponds to (1,0) in its local 2D space after rotation:
+        // We want to rotate the world so that the player's forward vector aligns with (1,0)
+        // The angle of the player's forward vector is YawRad.
+        // To make it (1,0), we need to rotate by -YawRad.
+        // In Unreal, rotations are typically Pitch, Yaw, Roll. We are only dealing with Yaw.
+        return FRotator(0.f, -FMath::RadiansToDegrees(YawRad), 0.f);
+    }
+    return FRotator::ZeroRotator;
+}
+
+FVector2D UStrafeMovementComponent::GetPlayerRelativeVelocity2D() const
+{
+    FVector2D WorldVel = GetWorldVelocity2D();
+    if (CharacterOwner)
+    {
+        FVector RotatedVector = GetPlayerOrientationInverseRotation().RotateVector(FVector(WorldVel.X, WorldVel.Y, 0.f));
+        return FVector2D(RotatedVector.X, RotatedVector.Y);
+    }
+    return WorldVel; // Fallback
+}
+
+FVector2D UStrafeMovementComponent::GetPlayerRelativeWishDirection2D() const
+{
+    FVector2D WorldWish = GetWorldWishDirection2D();
+    if (CharacterOwner)
+    {
+        FVector RotatedVector = GetPlayerOrientationInverseRotation().RotateVector(FVector(WorldWish.X, WorldWish.Y, 0.f));
+        return FVector2D(RotatedVector.X, RotatedVector.Y);
+    }
+    return WorldWish; // Fallback
+}
+
+float UStrafeMovementComponent::GetEffectiveAccelerationA() const
+{
+    if (!GetWorld()) return 0.f;
+    float DeltaTime = GetWorld()->GetDeltaSeconds(); // Current frame's delta time
+    float AccelParam = IsMovingOnGround() ? GroundAccelerationFactor : AirAccelerationFactor;
+    // This matches the article's a = sT * pml.frametime * wishspeed_config (if frametime = T and wishspeed_config = MaxWishSpeed)
+    // And a = accel_param * pml.frametime * wishspeed_config
+    // The article's 'a' = 2.56 is derived from s (MaxWishSpeed=320) * T (frametime, e.g., 1/125s)
+    // So, for the formulas, 'a' can be MaxWishSpeed * (relevant_pm_accel e.g. pm_airaccelerate) * DeltaTime
+    // Or, if the article's 'a' (2.56) is a constant representing max potential accel in one ideal frame tick for the formulas:
+    // return MaxWishSpeed * AirAccelerationFactor * (1.f/125.f); // if you want to tie to 125fps theory constant
+    return MaxWishSpeed * (IsFalling() ? AirAccelerationFactor : GroundAccelerationFactor) * DeltaTime;
+}
+
+FStrafeAngleInfo UStrafeMovementComponent::GetStrafeAngleInfo() const
+{
+    FStrafeAngleInfo Info;
+    FVector2D WorldVel2D = GetWorldVelocity2D(); // Use world vectors for delta calculation
+    FVector2D WorldWish2D = GetWorldWishDirection2D(); // Use world vectors for delta calculation
+    float CurrentSpeed = WorldVel2D.Size();
+    float S = GetSpeedCapS();
+    float A = GetEffectiveAccelerationA();
+
+    if (CurrentSpeed < KINDA_SMALL_NUMBER || S < KINDA_SMALL_NUMBER) {
+        return Info;
+    }
+
+    if (WorldWish2D.IsNearlyZero()) {
+        Info.CurrentDeltaDegrees = 0.f;
+    }
+    else {
+        float DotProduct = FVector2D::DotProduct(WorldVel2D.GetSafeNormal(), WorldWish2D.GetSafeNormal());
+        Info.CurrentDeltaDegrees = FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(DotProduct, -1.f, 1.f)));
+    }
+
+    float CosDeltaOpt = (S - A) / CurrentSpeed;
+    Info.OptimalDeltaDegrees = FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(CosDeltaOpt, -1.f, 1.f)));
+
+    float CosDeltaMin = S / CurrentSpeed;
+    Info.MinDeltaDegrees = FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(CosDeltaMin, -1.f, 1.f)));
+    if (S >= CurrentSpeed) Info.MinDeltaDegrees = 0.f;
+
+    float CosDeltaMaxGain = -A / (2 * CurrentSpeed);
+    Info.MaxGainDeltaDegrees = FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(CosDeltaMaxGain, -1.f, 1.f)));
+
+    return Info;
 }
